@@ -4,14 +4,13 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = 'change_this_secret_key'
-
-# Base SQLite dans /tmp/ (écriture autorisée sur Render)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/feedbacks.db'
+app.secret_key = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tmp/feedbacks.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# MODELE
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
@@ -21,53 +20,46 @@ class Feedback(db.Model):
 with app.app_context():
     db.create_all()
 
-
-ADMIN_USERNAME = 'admin'
-ADMIN_PASSWORD = 'password123'
-
+# PAGE ACCUEIL + ENVOI
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         name = request.form['name']
         message = request.form['message']
-        fb = Feedback(name=name, message=message)
-        db.session.add(fb)
+        db.session.add(Feedback(name=name, message=message))
         db.session.commit()
-        feedbacks = Feedback.query.order_by(Feedback.timestamp.desc()).limit(10).all()
-        return render_template('index.html', feedbacks=feedbacks, message="Thank you for your feedback!")
-    feedbacks = Feedback.query.order_by(Feedback.timestamp.desc()).limit(10).all()
-    return render_template('index.html', feedbacks=feedbacks)
+        return render_template('index.html', message="Message sent successfully!", feedbacks=[], page=1, has_next=False)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session['logged_in'] = True
-            return redirect(url_for('admin'))
-        else:
-            return render_template('login.html', error="Invalid credentials")
-    return render_template('login.html')
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    feedbacks = Feedback.query.order_by(Feedback.timestamp.desc()).paginate(page=page, per_page=per_page)
+    return render_template('index.html', feedbacks=feedbacks.items, page=page, has_next=feedbacks.has_next)
 
+# PAGE ADMIN
 @app.route('/admin')
 def admin():
-    if not session.get('logged_in'):
+    if 'logged_in' not in session:
         return redirect(url_for('login'))
     feedbacks = Feedback.query.order_by(Feedback.timestamp.desc()).all()
     return render_template('admin.html', feedbacks=feedbacks)
+
+# LOGIN
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['username'] == 'admin' and request.form['password'] == 'password':
+            session['logged_in'] = True
+            return redirect(url_for('admin'))
+        else:
+            error = 'Invalid Credentials'
+    return render_template('login.html', error=error)
 
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('index'))
 
+# LANCEMENT LOCAL
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
-
-
-if __name__ == '__main__':
-    with app.app_context():
-        if not os.path.exists('/tmp/feedbacks.db'):
-            db.create_all()
     app.run(debug=True)
