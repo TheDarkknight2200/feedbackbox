@@ -18,6 +18,10 @@ class Feedback(db.Model):
     message = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+with app.app_context():
+    db.create_all()
+
+
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = 'password123'
 
@@ -57,6 +61,10 @@ def admin():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
+
 
 if __name__ == '__main__':
     with app.app_context():
