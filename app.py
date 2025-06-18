@@ -6,7 +6,8 @@ import os
 app = Flask(__name__)
 app.secret_key = 'change_this_secret_key'
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feedbacks.db'
+# Base SQLite dans /tmp/ (écriture autorisée sur Render)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/feedbacks.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -59,6 +60,6 @@ def logout():
 
 if __name__ == '__main__':
     with app.app_context():
-        if not os.path.exists('feedbacks.db'):
+        if not os.path.exists('/tmp/feedbacks.db'):
             db.create_all()
     app.run(debug=True)
